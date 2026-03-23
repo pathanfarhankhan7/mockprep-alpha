@@ -8,11 +8,39 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, Mic, MicOff, Send, SkipForward, CheckCircle } from "lucide-react";
 
+/** Animated voice waveform bars shown while recording */
+function VoiceWaveform() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="flex items-center justify-center gap-1 py-4"
+    >
+      {Array.from({ length: 12 }).map((_, i) => (
+        <motion.div
+          key={i}
+          className="w-1.5 rounded-full bg-primary"
+          animate={{
+            height: [8, 24 + Math.random() * 20, 8],
+          }}
+          transition={{
+            duration: 0.6 + Math.random() * 0.4,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i * 0.07,
+          }}
+        />
+      ))}
+    </motion.div>
+  );
+}
+
 export default function InterviewPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { role, categories } = (location.state as { role: string; categories: string[] }) || {};
+  const { role, categories, questionLimit = 10 } = (location.state as { role: string; categories: string[]; questionLimit?: number }) || {};
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,8 +62,7 @@ export default function InterviewPage() {
     try {
       const allQuestions = await getQuestionsByRole(role);
       const filtered = allQuestions.filter(q => categories.includes(q.category));
-      // Take up to 10 random questions
-      const shuffled = filtered.sort(() => Math.random() - 0.5).slice(0, 10);
+      const shuffled = filtered.sort(() => Math.random() - 0.5).slice(0, questionLimit);
       setQuestions(shuffled);
     } catch {
       toast.error("Failed to load questions");
@@ -183,6 +210,29 @@ export default function InterviewPage() {
               </h2>
             </Card>
 
+            {/* Voice waveform animation */}
+            <AnimatePresence>
+              {isRecording && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <Card className="p-4 shadow-card border-primary/30 bg-primary/5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <motion.div
+                        className="h-3 w-3 rounded-full bg-destructive"
+                        animate={{ opacity: [1, 0.3, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      />
+                      <span className="text-sm font-medium text-primary">Listening... Speak your answer</span>
+                    </div>
+                    <VoiceWaveform />
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Answer input */}
             <div className="space-y-4">
               <div className="relative">
@@ -195,20 +245,13 @@ export default function InterviewPage() {
                 <Button
                   variant={isRecording ? "destructive" : "ghost"}
                   size="icon"
-                  className="absolute bottom-3 right-3"
+                  className={`absolute bottom-3 right-3 ${isRecording ? "animate-pulse-glow" : ""}`}
                   onClick={toggleRecording}
                   title={isRecording ? "Stop recording" : "Start recording"}
                 >
                   {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </Button>
               </div>
-
-              {isRecording && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-sm text-destructive">
-                  <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                  Recording... Speak your answer
-                </motion.div>
-              )}
 
               <div className="flex gap-3">
                 <Button variant="hero" size="lg" className="flex-1" onClick={handleSubmit} disabled={submitting}>
