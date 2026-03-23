@@ -68,17 +68,20 @@ export default function StartInterviewPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {ROLES.map(role => (
-              <Card
+              <div
                 key={role.id}
-                className={`p-5 cursor-pointer transition-all shadow-card hover:shadow-elevated ${
-                  selectedRole === role.id ? "ring-2 ring-primary" : ""
+                role="button"
+                tabIndex={0}
+                className={`p-5 cursor-pointer transition-all rounded-lg border bg-card text-card-foreground shadow-card hover:shadow-elevated ${
+                  selectedRole === role.id ? "ring-2 ring-primary border-primary" : "border-border"
                 }`}
                 onClick={() => setSelectedRole(role.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedRole(role.id); }}
               >
                 <role.icon className={`h-6 w-6 mb-2 ${selectedRole === role.id ? "text-primary" : "text-muted-foreground"}`} />
                 <h3 className="font-semibold font-display">{role.id}</h3>
                 <p className="text-sm text-muted-foreground">{role.description}</p>
-              </Card>
+              </div>
             ))}
           </div>
         </motion.div>
