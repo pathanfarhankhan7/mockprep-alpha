@@ -1,0 +1,186 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
+import { getInterviewHistory, getPerformanceByCategory, signOut, type InterviewSession, type PerformanceData } from "@/lib/api";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [history, setHistory] = useState<InterviewSession[]>([]);
+  const [performance, setPerformance] = useState<PerformanceData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const [h, p] = await Promise.all([getInterviewHistory(), getPerformanceByCategory()]);
+      setHistory(h);
+      setPerformance(p);
+    } catch {
+      // New user, no data yet
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const avgScore = history.filter(h => h.total_score !== null).length > 0
+    ? Math.round(history.filter(h => h.total_score !== null).reduce((s, h) => s + (h.total_score || 0), 0) / history.filter(h => h.total_score !== null).length)
+    : 0;
+
+  const weakAreas = [...performance].sort((a, b) => a.avg_score - b.avg_score).slice(0, 3);
+  const completedSessions = history.filter(h => h.completed_at).length;
+
+  const handleLogout = async () => {
+    await signOut();
+    toast.success("Logged out");
+    navigate("/login");
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto flex items-center justify-between py-4 px-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center">
+              <Brain className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-lg font-bold font-display">MockPrep AI</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Welcome + CTA */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold font-display">Dashboard</h1>
+            <p className="text-muted-foreground">Track your progress and start new interviews</p>
+          </div>
+          <Button variant="hero" size="lg" onClick={() => navigate("/interview/start")}>
+            <Play className="h-5 w-5" /> Start Interview
+          </Button>
+        </motion.div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { icon: Trophy, label: "Avg Score", value: `${avgScore}%`, color: "text-primary" },
+            { icon: Clock, label: "Sessions", value: completedSessions, color: "text-info" },
+            { icon: TrendingUp, label: "Categories", value: performance.length, color: "text-accent" },
+            { icon: Target, label: "Questions", value: performance.reduce((s, p) => s + p.total_questions, 0), color: "text-warning" },
+          ].map((stat, i) => (
+            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+              <Card className="p-5 shadow-card">
+                <div className="flex items-center gap-3">
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  <div>
+                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                    <p className="text-2xl font-bold font-display">{stat.value}</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Charts */}
+        {performance.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6 shadow-card">
+              <h3 className="text-lg font-semibold font-display mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" /> Performance by Category
+              </h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={performance}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="category" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem" }} />
+                  <Bar dataKey="avg_score" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+
+            <Card className="p-6 shadow-card">
+              <h3 className="text-lg font-semibold font-display mb-4">Skill Radar</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <RadarChart data={performance}>
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="category" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} />
+                  <Radar dataKey="avg_score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        )}
+
+        {/* Weak areas */}
+        {weakAreas.length > 0 && (
+          <Card className="p-6 shadow-card">
+            <h3 className="text-lg font-semibold font-display mb-4">Areas to Improve</h3>
+            <div className="space-y-3">
+              {weakAreas.map(area => (
+                <div key={area.category} className="flex items-center justify-between">
+                  <span className="font-medium">{area.category}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full gradient-primary rounded-full" style={{ width: `${area.avg_score}%` }} />
+                    </div>
+                    <span className="text-sm text-muted-foreground w-10 text-right">{area.avg_score}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* History */}
+        <Card className="p-6 shadow-card">
+          <h3 className="text-lg font-semibold font-display mb-4">Interview History</h3>
+          {history.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No interviews yet. Start your first one!</p>
+          ) : (
+            <div className="space-y-3">
+              {history.slice(0, 10).map(session => (
+                <Link
+                  key={session.id}
+                  to={session.completed_at ? `/interview/result/${session.id}` : "#"}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div>
+                    <p className="font-medium">{session.role}</p>
+                    <p className="text-sm text-muted-foreground">{new Date(session.started_at).toLocaleDateString()}</p>
+                  </div>
+                  {session.total_score !== null ? (
+                    <span className={`text-lg font-bold font-display ${session.total_score >= 80 ? "text-success" : session.total_score >= 60 ? "text-primary" : session.total_score >= 40 ? "text-warning" : "text-destructive"}`}>
+                      {session.total_score}%
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">In progress</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+      </main>
+    </div>
+  );
+}
