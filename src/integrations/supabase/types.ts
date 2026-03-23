@@ -14,7 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interview_results: {
+        Row: {
+          created_at: string
+          feedback: string
+          final_score: number
+          id: string
+          keyword_score: number
+          question_id: string
+          semantic_score: number
+          session_id: string
+          user_answer: string
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string
+          final_score?: number
+          id?: string
+          keyword_score?: number
+          question_id: string
+          semantic_score?: number
+          session_id: string
+          user_answer: string
+        }
+        Update: {
+          created_at?: string
+          feedback?: string
+          final_score?: number
+          id?: string
+          keyword_score?: number
+          question_id?: string
+          semantic_score?: number
+          session_id?: string
+          user_answer?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_results_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_results_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "interview_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_sessions: {
+        Row: {
+          completed_at: string | null
+          id: string
+          role: string
+          started_at: string
+          total_score: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          role: string
+          started_at?: string
+          total_score?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          role?: string
+          started_at?: string
+          total_score?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          ideal_answer: string
+          keywords: string[]
+          question: string
+          role: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          ideal_answer?: string
+          keywords?: string[]
+          question: string
+          role: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          ideal_answer?: string
+          keywords?: string[]
+          question?: string
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
