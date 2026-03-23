@@ -1,24 +1,30 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { startInterview } from "@/lib/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Brain, Code, Database, Cpu, Users, BarChart3, Layers, ArrowLeft } from "lucide-react";
+import { Brain, Code, Cpu, Users, BarChart3, ArrowLeft, Shield, Palette, Bug, Server } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 const ROLES = [
   { id: "Software Engineer", icon: Code, description: "DSA, OOP, System Design" },
   { id: "Data Analyst", icon: BarChart3, description: "SQL, Statistics, Visualization" },
   { id: "Data Scientist", icon: Cpu, description: "ML, Statistics, Python" },
   { id: "Product Manager", icon: Users, description: "Strategy, Metrics, Execution" },
+  { id: "DevOps Engineer", icon: Server, description: "CI/CD, Docker, Monitoring" },
+  { id: "UI/UX Designer", icon: Palette, description: "Design Process, Accessibility" },
+  { id: "QA Engineer", icon: Bug, description: "Testing, TDD, Bug Triage" },
 ];
 
 const CATEGORIES = ["DSA", "OOP", "System Design", "Machine Learning", "HR", "Database Design"];
 
+const QUESTION_LIMITS = [5, 10, 15, 20];
+
 export default function StartInterviewPage() {
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [questionLimit, setQuestionLimit] = useState(10);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -36,7 +42,7 @@ export default function StartInterviewPage() {
     try {
       const session = await startInterview(selectedRole);
       navigate(`/interview/${session.id}`, {
-        state: { role: selectedRole, categories: selectedCategories },
+        state: { role: selectedRole, categories: selectedCategories, questionLimit },
       });
     } catch (err: any) {
       toast.error(err.message || "Failed to start interview");
@@ -61,12 +67,13 @@ export default function StartInterviewPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl space-y-8">
+      <main className="container mx-auto px-4 py-8 max-w-3xl space-y-8">
+        {/* Role Selection */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h2 className="text-2xl font-bold font-display mb-2">Select Your Role</h2>
           <p className="text-muted-foreground mb-6">Choose the position you're preparing for</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {ROLES.map(role => (
               <div
                 key={role.id}
@@ -86,6 +93,7 @@ export default function StartInterviewPage() {
           </div>
         </motion.div>
 
+        {/* Category Selection */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <h2 className="text-2xl font-bold font-display mb-2">Select Categories</h2>
           <p className="text-muted-foreground mb-6">Pick topics to be tested on</p>
@@ -104,8 +112,30 @@ export default function StartInterviewPage() {
           </div>
         </motion.div>
 
+        {/* Question Limit */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <h2 className="text-2xl font-bold font-display mb-2">Number of Questions</h2>
+          <p className="text-muted-foreground mb-6">How many questions do you want in this session?</p>
+
+          <div className="flex gap-3">
+            {QUESTION_LIMITS.map(limit => (
+              <Button
+                key={limit}
+                variant={questionLimit === limit ? "default" : "outline"}
+                onClick={() => setQuestionLimit(limit)}
+                className="rounded-full min-w-[3.5rem]"
+              >
+                {limit}
+              </Button>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground mt-3">
+            Selected: <span className="font-semibold text-foreground">{questionLimit} questions</span>
+          </p>
+        </motion.div>
+
         <Button variant="hero" size="lg" className="w-full" onClick={handleStart} disabled={loading}>
-          {loading ? "Starting..." : "Begin Interview"}
+          {loading ? "Starting..." : `Begin Interview (${questionLimit} Questions)`}
         </Button>
       </main>
     </div>
