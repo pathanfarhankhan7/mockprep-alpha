@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getInterviewHistory, getPerformanceByCategory, signOut, type InterviewSession, type PerformanceData } from "@/lib/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target } from "lucide-react";
+import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target, BookOpen, Sparkles } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 
 export default function DashboardPage() {
@@ -58,6 +58,9 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/learning")}>
+              <BookOpen className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
             </Button>
@@ -72,9 +75,20 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold font-display">Dashboard</h1>
             <p className="text-muted-foreground">Track your progress and start new interviews</p>
           </div>
-          <Button variant="hero" size="lg" onClick={() => navigate("/interview/start")}>
-            <Play className="h-5 w-5" /> Start Interview
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="hero" size="lg" onClick={() => navigate("/interview/start")}>
+              <Play className="h-5 w-5" /> Start Interview
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => navigate("/learning")}>
+              <BookOpen className="h-5 w-5" /> Learning Hub
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => navigate("/progress")}>
+              <BarChart3 className="h-5 w-5" /> Progress
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => navigate("/ai-coach")}>
+              <Sparkles className="h-5 w-5" /> AI Coach
+            </Button>
+          </div>
         </motion.div>
 
         {/* Stats */}
