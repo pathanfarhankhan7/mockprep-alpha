@@ -12,6 +12,11 @@ import DashboardPage from "./pages/DashboardPage";
 import StartInterviewPage from "./pages/StartInterviewPage";
 import InterviewPage from "./pages/InterviewPage";
 import ResultPage from "./pages/ResultPage";
+import LearningHub from "./pages/LearningHub";
+import TipDetailPage from "./pages/TipDetailPage";
+import CategoryPage from "./pages/CategoryPage";
+import ProgressDashboard from "./pages/ProgressDashboard";
+import AIFeedbackPage from "./pages/AIFeedbackPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +36,11 @@ const App = () => (
             <Route path="/interview/start" element={<ProtectedRoute><StartInterviewPage /></ProtectedRoute>} />
             <Route path="/interview/:sessionId" element={<ProtectedRoute><InterviewPage /></ProtectedRoute>} />
             <Route path="/interview/result/:sessionId" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
+            <Route path="/learning" element={<LearningHub />} />
+            <Route path="/learning/:tipId" element={<TipDetailPage />} />
+            <Route path="/learning/category/:category" element={<CategoryPage />} />
+            <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
+            <Route path="/ai-coach" element={<AIFeedbackPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
