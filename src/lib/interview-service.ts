@@ -290,8 +290,14 @@ const FILLER_WORDS = [
 ];
 
 // Pre-compile filler word regexes to avoid repeated compilation on each call
-const FILLER_REGEXES: RegExp[] = FILLER_WORDS.map(
-  (filler) => new RegExp(`\\b${filler}\\b`, "gi")
+// Multi-word phrases use a plain string search; single words use word boundaries
+const FILLER_REGEXES: Array<{ pattern: RegExp; isPhrase: boolean }> = FILLER_WORDS.map(
+  (filler) => ({
+    pattern: filler.includes(" ")
+      ? new RegExp(filler.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")
+      : new RegExp(`\\b${filler}\\b`, "gi"),
+    isPhrase: filler.includes(" "),
+  })
 );
 
 const STAR_KEYWORDS = {
@@ -333,7 +339,7 @@ export function analyzeAnswer(
   else if (wordCount > 350) clarityScore -= 10; // too long/rambling
 
   const fillerCount = FILLER_REGEXES.reduce(
-    (count, regex) => count + (answer.match(regex)?.length ?? 0),
+    (count, { pattern }) => count + (answer.match(pattern)?.length ?? 0),
     0
   );
 
@@ -392,7 +398,7 @@ export function analyzeAnswer(
   const positiveHits = POSITIVE_WORDS.filter((w) => lower.includes(w)).length;
   confidenceScore += Math.min(30, positiveHits * 6);
 
-  const firstPersonCount = (lower.match(/\b(i |i')\b/g) ?? []).length;
+  const firstPersonCount = (lower.match(/\bi(?:\s|')/g) ?? []).length;
   if (firstPersonCount >= 3) confidenceScore += 10;
   if (firstPersonCount >= 6) confidenceScore += 5;
 
@@ -441,7 +447,7 @@ function generateFeedback(
   }
 
   const fillerCount = FILLER_REGEXES.reduce(
-    (count, regex) => count + (answer.match(regex)?.length ?? 0),
+    (count, { pattern }) => count + (answer.match(pattern)?.length ?? 0),
     0
   );
   if (fillerCount > 3) {

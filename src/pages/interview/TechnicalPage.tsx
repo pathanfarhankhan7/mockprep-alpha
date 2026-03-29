@@ -61,7 +61,7 @@ export default function TechnicalPage() {
   const [warned10, setWarned10] = useState(false);
   const [warned5, setWarned5] = useState(false);
   const answerRef = useRef(answer);
-  answerRef.current = answer;
+  useEffect(() => { answerRef.current = answer; }, [answer]);
 
   const stageData = interview?.stages[STAGE];
   const question = stageData?.questions[0];

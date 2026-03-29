@@ -21,6 +21,13 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  const stopStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
   // Revoke object URLs when they change to avoid memory leaks
   useEffect(() => {
     return () => {
@@ -33,13 +40,8 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
     return () => {
       stopStream();
     };
-  }, [stopStream]);
-
-  const stopStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+    // stopStream is stable (empty deps) so omitting it is intentional
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startRecording = useCallback(async () => {

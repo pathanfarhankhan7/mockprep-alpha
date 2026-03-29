@@ -169,6 +169,7 @@ export default function SetupPage() {
                     key={id}
                     role="button"
                     tabIndex={0}
+                    aria-pressed={role === id}
                     className={`p-5 cursor-pointer rounded-lg border bg-card shadow-card hover:shadow-elevated transition-all ${
                       role === id ? "ring-2 ring-primary border-primary" : "border-border"
                     }`}
@@ -203,6 +204,7 @@ export default function SetupPage() {
                     key={id}
                     role="button"
                     tabIndex={0}
+                    aria-pressed={company === id}
                     className={`p-5 cursor-pointer rounded-lg border bg-card shadow-card hover:shadow-elevated transition-all ${
                       company === id ? "ring-2 ring-primary border-primary" : "border-border"
                     }`}
@@ -237,6 +239,7 @@ export default function SetupPage() {
                     key={id}
                     role="button"
                     tabIndex={0}
+                    aria-pressed={interviewType === id}
                     className={`p-5 cursor-pointer rounded-lg border bg-card shadow-card hover:shadow-elevated transition-all ${
                       interviewType === id ? "ring-2 ring-primary border-primary" : "border-border"
                     }`}

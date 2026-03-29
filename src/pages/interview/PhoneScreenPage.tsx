@@ -152,7 +152,7 @@ export default function PhoneScreenPage() {
       }
       setSubmitting(false);
     }
-  }, [interview, currentQuestion, interviewId, questionIndex, questions.length, submitting, timeLeft, isRecording]);
+  }, [interview, currentQuestion, interviewId, navigate, questionIndex, questions.length, submitting, timeLeft, isRecording]);
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -231,7 +231,7 @@ export default function PhoneScreenPage() {
           <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
             <motion.div
               className="h-full gradient-primary rounded-full"
-              animate={{ width: `${((questionIndex) / questions.length) * 100}%` }}
+              animate={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }}
               transition={{ duration: 0.4 }}
             />
           </div>
