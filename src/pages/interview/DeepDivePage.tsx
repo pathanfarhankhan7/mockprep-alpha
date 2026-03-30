@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Brain, Mic, MicOff, AlertTriangle, ChevronRight, Building2 } from "lucide-react";
+import { Brain, Mic, MicOff, AlertTriangle, ChevronRight, Building2, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 import {
   getInterview,
@@ -16,6 +16,8 @@ import {
 import { getStageName, getStagesForType } from "@/lib/interview-data";
 import { useTimer, formatTime } from "@/hooks/useTimer";
 import type { MultiStageInterview, StageType } from "@/lib/interview-service";
+import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
+import QuestionAIFeedback from "@/components/QuestionAIFeedback";
 
 const STAGE: StageType = "deep-dive";
 
@@ -57,6 +59,9 @@ export default function DeepDivePage() {
   const [submitting, setSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [warned, setWarned] = useState(false);
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [analyzingAI, setAnalyzingAI] = useState(false);
+  const [pendingContinue, setPendingContinue] = useState<(() => void) | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const answerRef = useRef(answer);
   answerRef.current = answer;
@@ -96,7 +101,7 @@ export default function DeepDivePage() {
     }
   }, [timeLeft, isRunning, warned]);
 
-  const handleSubmitAnswer = useCallback(() => {
+  const handleSubmitAnswer = useCallback(async () => {
     if (!interview || !currentQuestion || submitting) return;
     setSubmitting(true);
 
@@ -108,27 +113,45 @@ export default function DeepDivePage() {
     const timeUsed = (currentQuestion.timeLimit ?? 120) - timeLeft;
     const finalAnswer = answerRef.current.trim() || "(No answer provided)";
     const updated = saveAnswer(interviewId, STAGE, questionIndex, finalAnswer, timeUsed);
+    if (updated) setInterview(updated);
 
     const nextIndex = questionIndex + 1;
-    if (nextIndex < questions.length) {
-      setQuestionIndex(nextIndex);
-      setAnswer("");
-      setSubmitting(false);
-      if (updated) setInterview(updated);
-    } else {
-      const withStage = completeStage(interviewId, STAGE);
-      if (!withStage) { setSubmitting(false); return; }
-
-      const stages = getStagesForType(withStage.role, withStage.type);
-      const nextStage = stages[stages.indexOf(STAGE) + 1] as StageType | undefined;
-
-      if (nextStage) {
-        navigate(`${getStageRoute(nextStage)}?id=${interviewId}`);
+    const continueAction = () => {
+      setAiResult(null);
+      setPendingContinue(null);
+      if (nextIndex < questions.length) {
+        setQuestionIndex(nextIndex);
+        setAnswer("");
+        setSubmitting(false);
       } else {
-        completeInterview(interviewId);
-        navigate(`/interview/analysis/${interviewId}`);
+        const withStage = completeStage(interviewId, STAGE);
+        if (!withStage) { setSubmitting(false); return; }
+        const stages = getStagesForType(withStage.role, withStage.type);
+        const nextStage = stages[stages.indexOf(STAGE) + 1] as StageType | undefined;
+        if (nextStage) {
+          navigate(`${getStageRoute(nextStage)}?id=${interviewId}`);
+        } else {
+          completeInterview(interviewId);
+          navigate(`/interview/analysis/${interviewId}`);
+        }
+        setSubmitting(false);
       }
-      setSubmitting(false);
+    };
+
+    setAnalyzingAI(true);
+    try {
+      const result = await analyzeInterviewAnswer({
+        question: currentQuestion.text,
+        answer: finalAnswer,
+        category: currentQuestion.type === "case-study" ? "Problem-Solving" : "Behavioral",
+        role: interview.role,
+      });
+      setAiResult(result);
+      setPendingContinue(() => continueAction);
+    } catch {
+      continueAction();
+    } finally {
+      setAnalyzingAI(false);
     }
   }, [interview, currentQuestion, interviewId, questionIndex, questions.length, submitting, timeLeft, isRecording, navigate]);
 
@@ -206,6 +229,50 @@ export default function DeepDivePage() {
 
       <main className="container mx-auto px-4 py-6 max-w-3xl flex-1">
         <AnimatePresence mode="wait">
+          {(analyzingAI || aiResult) && (
+            <motion.div
+              key="ai-feedback"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {analyzingAI ? (
+                <Card className="p-8 shadow-elevated flex flex-col items-center gap-4 text-center">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold font-display text-lg">AI Coach is reviewing your answer…</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Analyzing depth and company alignment</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="h-2.5 w-2.5 rounded-full bg-primary"
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              ) : aiResult && (
+                <QuestionAIFeedback
+                  result={aiResult}
+                  questionText={currentQuestion?.text ?? ""}
+                  onContinue={() => pendingContinue?.()}
+                  continueLabel={
+                    questionIndex < questions.length - 1
+                      ? `Next Question (${questionIndex + 2}/${questions.length})`
+                      : "Complete Stage →"
+                  }
+                />
+              )}
+            </motion.div>
+          )}
+
+          {!analyzingAI && !aiResult && (
           <motion.div
             key={questionIndex}
             initial={{ opacity: 0, y: 20 }}
@@ -213,11 +280,22 @@ export default function DeepDivePage() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Interviewer persona */}
+            <Card className="p-4 shadow-card flex items-center gap-3 bg-muted/30">
+              <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground">Interviewer · Deep Dive</p>
+                <p className="text-sm font-medium">{interview.company} Hiring Manager</p>
+              </div>
+            </Card>
+
             <div className="flex gap-4 items-start">
               <CircularTimer timeLeft={timeLeft} total={timeLimit} />
               <Card className="flex-1 p-5 shadow-elevated">
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 mb-3">
-                  {currentQuestion.type === "case-study" ? "Case Study" : "Behavioral"}
+                  {currentQuestion.type === "case-study" ? "Case Study" : "Behavioral"} · Question {questionIndex + 1}/{questions.length}
                 </span>
                 <h2 className="text-lg font-semibold font-display leading-relaxed">
                   {currentQuestion.text}
@@ -260,13 +338,14 @@ export default function DeepDivePage() {
                   {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </Button>
               </div>
-              <Button variant="hero" size="lg" className="w-full" onClick={handleSubmitAnswer} disabled={submitting}>
-                {submitting ? "Saving..." : questionIndex < questions.length - 1 ? (
-                  <>Submit & Next <ChevronRight className="h-5 w-5" /></>
-                ) : "Complete Stage →"}
+              <Button variant="hero" size="lg" className="w-full" onClick={handleSubmitAnswer} disabled={submitting || analyzingAI}>
+                {submitting ? "Saving…" : questionIndex < questions.length - 1 ? (
+                  <>Submit Answer <ChevronRight className="h-5 w-5" /></>
+                ) : "Submit & Finish Stage →"}
               </Button>
             </div>
           </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

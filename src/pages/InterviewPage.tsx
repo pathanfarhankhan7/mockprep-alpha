@@ -6,7 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { getQuestionsByRole, submitAnswer, completeInterview, type Question } from "@/lib/api";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Mic, MicOff, Send, SkipForward, CheckCircle } from "lucide-react";
+import { Brain, Mic, MicOff, Send, SkipForward, CheckCircle, Sparkles, User } from "lucide-react";
+import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
+import QuestionAIFeedback from "@/components/QuestionAIFeedback";
 
 /** Animated voice waveform bars shown while recording */
 function VoiceWaveform() {
@@ -48,6 +50,8 @@ export default function InterviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [analyzingAI, setAnalyzingAI] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -121,19 +125,51 @@ export default function InterviewPage() {
     try {
       await submitAnswer(sessionId, currentQuestion.id, answer.trim());
 
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-        setAnswer("");
-        toast.success("Answer submitted!");
-      } else {
-        await completeInterview(sessionId);
-        toast.success("Interview complete!");
-        navigate(`/interview/result/${sessionId}`);
+      const isLast = currentIndex >= questions.length - 1;
+
+      // Run AI analysis
+      setAnalyzingAI(true);
+      try {
+        const result = await analyzeInterviewAnswer({
+          question: currentQuestion.question,
+          answer: answer.trim(),
+          category: currentQuestion.category,
+          role,
+        });
+        setAiResult(result);
+        // Navigation will happen when user clicks Continue in the feedback panel
+        if (isLast) {
+          await completeInterview(sessionId);
+        }
+      } catch {
+        // If AI fails, just advance normally
+        if (isLast) {
+          await completeInterview(sessionId);
+          toast.success("Interview complete!");
+          navigate(`/interview/result/${sessionId}`);
+        } else {
+          setCurrentIndex(prev => prev + 1);
+          setAnswer("");
+          toast.success("Answer submitted!");
+        }
+      } finally {
+        setAnalyzingAI(false);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to submit answer");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleContinueAfterFeedback = () => {
+    setAiResult(null);
+    if (currentIndex >= questions.length - 1) {
+      toast.success("Interview complete!");
+      navigate(`/interview/result/${sessionId}`);
+    } else {
+      setCurrentIndex(prev => prev + 1);
+      setAnswer("");
     }
   };
 
@@ -192,6 +228,49 @@ export default function InterviewPage() {
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <AnimatePresence mode="wait">
+          {/* AI Feedback panel */}
+          {(analyzingAI || aiResult) ? (
+            <motion.div
+              key="ai-feedback"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {analyzingAI ? (
+                <Card className="p-8 shadow-elevated flex flex-col items-center gap-4 text-center">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold font-display text-lg">AI Coach is reviewing your answer…</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Analyzing clarity, completeness, and confidence</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="h-2.5 w-2.5 rounded-full bg-primary"
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              ) : aiResult && (
+                <QuestionAIFeedback
+                  result={aiResult}
+                  questionText={currentQuestion?.question ?? ""}
+                  onContinue={handleContinueAfterFeedback}
+                  continueLabel={
+                    currentIndex < questions.length - 1
+                      ? `Next Question (${currentIndex + 2}/${questions.length})`
+                      : "View Results →"
+                  }
+                />
+              )}
+            </motion.div>
+          ) : (
           <motion.div
             key={currentIndex}
             initial={{ opacity: 0, x: 30 }}
@@ -200,6 +279,17 @@ export default function InterviewPage() {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
+            {/* Interviewer persona */}
+            <Card className="p-4 shadow-card flex items-center gap-3 bg-muted/30">
+              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <User className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground">Interviewer · Practice Session</p>
+                <p className="text-sm font-medium">{role} Interview</p>
+              </div>
+            </Card>
+
             {/* Question */}
             <Card className="p-6 shadow-elevated">
               <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary mb-4">
@@ -254,9 +344,11 @@ export default function InterviewPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button variant="hero" size="lg" className="flex-1" onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? "Evaluating..." : currentIndex === questions.length - 1 ? (
-                    <><CheckCircle className="h-5 w-5" /> Finish Interview</>
+                <Button variant="hero" size="lg" className="flex-1" onClick={handleSubmit} disabled={submitting || analyzingAI}>
+                  {submitting || analyzingAI ? (
+                    <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> Processing...</>
+                  ) : currentIndex === questions.length - 1 ? (
+                    <><CheckCircle className="h-5 w-5" /> Submit & Finish</>
                   ) : (
                     <><Send className="h-5 w-5" /> Submit Answer</>
                   )}
@@ -269,6 +361,7 @@ export default function InterviewPage() {
               </div>
             </div>
           </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

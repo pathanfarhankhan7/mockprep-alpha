@@ -76,7 +76,7 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">Track your progress and start new interviews</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="hero" size="lg" onClick={() => navigate("/interview/start")}>
+            <Button variant="hero" size="lg" onClick={() => navigate("/interview/setup")}>
               <Play className="h-5 w-5" /> Start Interview
             </Button>
             <Button variant="outline" size="lg" onClick={() => navigate("/learning")}>

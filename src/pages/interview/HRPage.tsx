@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Brain, Mic, MicOff, Heart, ChevronRight } from "lucide-react";
+import { Brain, Mic, MicOff, Heart, ChevronRight, Sparkles, User } from "lucide-react";
 import { toast } from "sonner";
 import {
   getInterview,
@@ -15,6 +15,8 @@ import {
 import { getStageName, getStagesForType } from "@/lib/interview-data";
 import { useTimer, formatTime } from "@/hooks/useTimer";
 import type { MultiStageInterview, StageType } from "@/lib/interview-service";
+import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
+import QuestionAIFeedback from "@/components/QuestionAIFeedback";
 
 const STAGE: StageType = "hr";
 
@@ -48,6 +50,9 @@ export default function HRPage() {
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [analyzingAI, setAnalyzingAI] = useState(false);
+  const [pendingContinue, setPendingContinue] = useState<(() => void) | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const answerRef = useRef(answer);
   answerRef.current = answer;
@@ -79,7 +84,7 @@ export default function HRPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionIndex, currentQuestion?.id]);
 
-  const handleSubmitAnswer = useCallback(() => {
+  const handleSubmitAnswer = useCallback(async () => {
     if (!interview || !currentQuestion || submitting) return;
     setSubmitting(true);
 
@@ -91,20 +96,39 @@ export default function HRPage() {
     const timeUsed = (currentQuestion.timeLimit ?? 120) - timeLeft;
     const finalAnswer = answerRef.current.trim() || "(No answer provided)";
     const updated = saveAnswer(interviewId, STAGE, questionIndex, finalAnswer, timeUsed);
+    if (updated) setInterview(updated);
 
     const nextIndex = questionIndex + 1;
-    if (nextIndex < questions.length) {
-      setQuestionIndex(nextIndex);
-      setAnswer("");
-      setSubmitting(false);
-      if (updated) setInterview(updated);
-    } else {
-      const withStage = completeStage(interviewId, STAGE);
-      if (!withStage) { setSubmitting(false); return; }
+    const continueAction = () => {
+      setAiResult(null);
+      setPendingContinue(null);
+      if (nextIndex < questions.length) {
+        setQuestionIndex(nextIndex);
+        setAnswer("");
+        setSubmitting(false);
+      } else {
+        const withStage = completeStage(interviewId, STAGE);
+        if (!withStage) { setSubmitting(false); return; }
+        completeInterview(interviewId);
+        navigate(`/interview/analysis/${interviewId}`);
+        setSubmitting(false);
+      }
+    };
 
-      completeInterview(interviewId);
-      navigate(`/interview/analysis/${interviewId}`);
-      setSubmitting(false);
+    setAnalyzingAI(true);
+    try {
+      const result = await analyzeInterviewAnswer({
+        question: currentQuestion.text,
+        answer: finalAnswer,
+        category: "HR",
+        role: interview.role,
+      });
+      setAiResult(result);
+      setPendingContinue(() => continueAction);
+    } catch {
+      continueAction();
+    } finally {
+      setAnalyzingAI(false);
     }
   }, [interview, currentQuestion, interviewId, questionIndex, questions.length, submitting, timeLeft, isRecording, navigate]);
 
@@ -172,6 +196,50 @@ export default function HRPage() {
 
       <main className="container mx-auto px-4 py-8 max-w-3xl flex-1">
         <AnimatePresence mode="wait">
+          {(analyzingAI || aiResult) && (
+            <motion.div
+              key="ai-feedback"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {analyzingAI ? (
+                <Card className="p-8 shadow-elevated flex flex-col items-center gap-4 text-center">
+                  <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <Sparkles className="h-6 w-6 text-emerald-600 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold font-display text-lg">AI Coach is reviewing your answer…</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Evaluating communication and cultural fit</p>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="h-2.5 w-2.5 rounded-full bg-emerald-500"
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              ) : aiResult && (
+                <QuestionAIFeedback
+                  result={aiResult}
+                  questionText={currentQuestion?.text ?? ""}
+                  onContinue={() => pendingContinue?.()}
+                  continueLabel={
+                    questionIndex < questions.length - 1
+                      ? `Next Question (${questionIndex + 2}/${questions.length})`
+                      : "View Full Analysis →"
+                  }
+                />
+              )}
+            </motion.div>
+          )}
+
+          {!analyzingAI && !aiResult && (
           <motion.div
             key={questionIndex}
             initial={{ opacity: 0, y: 20 }}
@@ -179,10 +247,21 @@ export default function HRPage() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Interviewer persona */}
+            <Card className="p-4 shadow-card flex items-center gap-3 bg-emerald-50/50 border-emerald-200/50">
+              <div className="h-10 w-10 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground">HR Round · Final Stage</p>
+                <p className="text-sm font-medium text-emerald-800">HR Partner — Be yourself ✨</p>
+              </div>
+            </Card>
+
             {/* Relaxed header message */}
             <div className="text-center py-2">
               <p className="text-muted-foreground text-sm">
-                This is the final stage. Relax — just be yourself. ✨
+                Question {questionIndex + 1} of {questions.length} · Relax and be authentic
               </p>
             </div>
 
@@ -235,19 +314,20 @@ export default function HRPage() {
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 size="lg"
                 onClick={handleSubmitAnswer}
-                disabled={submitting}
+                disabled={submitting || analyzingAI}
               >
-                {submitting ? "Saving..." : questionIndex < questions.length - 1 ? (
-                  <>Next Question <ChevronRight className="h-5 w-5" /></>
+                {submitting ? "Saving…" : questionIndex < questions.length - 1 ? (
+                  <>Submit Answer <ChevronRight className="h-5 w-5" /></>
                 ) : (
                   <>
                     <Brain className="h-5 w-5" />
-                    Complete Interview & View Analysis
+                    Submit & View Analysis
                   </>
                 )}
               </Button>
             </div>
           </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

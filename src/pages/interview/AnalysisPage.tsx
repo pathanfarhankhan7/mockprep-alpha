@@ -17,9 +17,12 @@ import {
   CheckCircle2,
   XCircle,
   MinusCircle,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import { getInterview, type MultiStageInterview, type StageData, type StageAnswer, type Verdict } from "@/lib/interview-service";
 import { getStageName, getStagesForType } from "@/lib/interview-data";
+import { analyzeInterviewAnswer } from "@/lib/ai-service";
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const color =
@@ -240,12 +243,44 @@ export default function AnalysisPage() {
   const { interviewId } = useParams<{ interviewId: string }>();
   const navigate = useNavigate();
   const [interview, setInterview] = useState<MultiStageInterview | null>(null);
+  const [aiSummary, setAiSummary] = useState<{ recommendation: string; strengths: string[]; improvements: string[] } | null>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
 
   useEffect(() => {
     if (!interviewId) { navigate("/dashboard"); return; }
     const iv = getInterview(interviewId);
     if (!iv) { navigate("/dashboard"); return; }
     setInterview(iv);
+
+    // Generate AI coaching summary from the first answered question of each stage
+    const allAnswers: Array<{ question: string; answer: string; category: string }> = [];
+    for (const stageData of Object.values(iv.stages)) {
+      if (!stageData?.answers?.length) continue;
+      const a = stageData.answers[0];
+      const q = stageData.questions.find(q => q.id === a.questionId);
+      if (q && a.text && a.text !== "(No answer provided)") {
+        allAnswers.push({ question: q.text, answer: a.text, category: q.type });
+      }
+    }
+
+    if (allAnswers.length > 0) {
+      const sample = allAnswers[0];
+      setLoadingAI(true);
+      analyzeInterviewAnswer({
+        question: sample.question,
+        answer: sample.answer,
+        category: sample.category,
+        role: iv.role,
+      }).then((result) => {
+        setAiSummary({
+          recommendation: result.recommendation,
+          strengths: result.strengths,
+          improvements: result.improvements,
+        });
+      }).catch(() => {
+        // silently fail — heuristic summary will still show
+      }).finally(() => setLoadingAI(false));
+    }
   }, [interviewId, navigate]);
 
   if (!interview) {
@@ -353,6 +388,57 @@ export default function AnalysisPage() {
             </Card>
           </motion.div>
         </div>
+
+        {/* AI Coaching Summary */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="p-5 shadow-card bg-primary/5 border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold font-display">AI Coach Summary</h3>
+            </div>
+            {loadingAI ? (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Generating personalized coaching insights…
+              </div>
+            ) : aiSummary ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                  <Lightbulb className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                  {aiSummary.recommendation}
+                </p>
+                {aiSummary.strengths.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-700 mb-1">Standout strengths</p>
+                    <ul className="space-y-1">
+                      {aiSummary.strengths.map((s, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-800">
+                          <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-emerald-500" />{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiSummary.improvements.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-700 mb-1">Focus areas for next time</p>
+                    <ul className="space-y-1">
+                      {aiSummary.improvements.map((imp, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-amber-800">
+                          <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-amber-500" />{imp}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Complete interview answers to receive personalised AI coaching insights.
+              </p>
+            )}
+          </Card>
+        </motion.div>
 
         {/* Stage breakdown */}
         <div className="space-y-4">
