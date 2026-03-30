@@ -218,6 +218,16 @@ export default function TechnicalPage() {
             }`}
           />
 
+          {/* Word/char counter */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {answer.trim() ? answer.trim().split(/\s+/).length : 0} words
+            </span>
+            <span className={answer.length > 2000 ? "text-amber-600 font-medium" : ""}>
+              {answer.length} chars
+            </span>
+          </div>
+
           <Button
             variant="hero"
             size="lg"
