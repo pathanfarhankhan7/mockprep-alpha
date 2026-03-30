@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useTheme } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -30,8 +31,14 @@ import HistoryPage from "./pages/interview/HistoryPage";
 
 const queryClient = new QueryClient();
 
+function ThemeInitializer() {
+  useTheme(); // Reads localStorage and applies dark class on mount
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeInitializer />
     <AuthProvider>
       <TooltipProvider>
         <Toaster />

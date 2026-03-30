@@ -434,7 +434,7 @@ export default function AnalysisPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Complete interview answers to receive personalised AI coaching insights.
+                Complete interview answers to receive personalized AI coaching insights.
               </p>
             )}
           </Card>

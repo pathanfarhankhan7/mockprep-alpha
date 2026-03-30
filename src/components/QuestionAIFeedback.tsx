@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,6 +10,8 @@ import {
   ChevronRight,
   Bot,
   Lightbulb,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { AIAnalysisResult } from "@/lib/ai-service";
 
@@ -45,6 +48,22 @@ export default function QuestionAIFeedback({
   continueLabel = "Continue",
 }: QuestionAIFeedbackProps) {
   const { scores, strengths, improvements, recommendation } = result;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = [
+      `Question: ${questionText}`,
+      `Overall Score: ${scores.overall}/100`,
+      `Clarity: ${scores.clarity} | Completeness: ${scores.completeness} | Confidence: ${scores.confidence} | Relevance: ${scores.relevance}`,
+      strengths.length > 0 ? `\nStrengths:\n${strengths.map(s => `• ${s}`).join("\n")}` : "",
+      improvements.length > 0 ? `\nImprovements:\n${improvements.map(i => `• ${i}`).join("\n")}` : "",
+      `\nCoach Tip: ${recommendation}`,
+    ].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   return (
     <motion.div
@@ -67,6 +86,15 @@ export default function QuestionAIFeedback({
             <Bot className="h-3 w-3" /> GPT-4o
           </span>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 ml-1"
+          onClick={handleCopy}
+          title="Copy feedback"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+        </Button>
       </div>
 
       {/* Overall score */}

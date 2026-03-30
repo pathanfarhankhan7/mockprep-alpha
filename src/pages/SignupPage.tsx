@@ -7,6 +7,7 @@ import { signUp } from "@/lib/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Brain, ArrowRight } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
@@ -47,11 +48,14 @@ export default function SignupPage() {
 
       <div className="flex-1 flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
-              <Brain className="h-6 w-6 text-primary-foreground" />
+          <div className="lg:hidden flex items-center justify-between mb-8">
+            <div className="flex items-center gap-2">
+              <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
+                <Brain className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <span className="text-xl font-bold font-display">MockPrep AI</span>
             </div>
-            <span className="text-xl font-bold font-display">MockPrep AI</span>
+            <ThemeToggle />
           </div>
 
           <h2 className="text-2xl font-bold font-display mb-2">Create account</h2>

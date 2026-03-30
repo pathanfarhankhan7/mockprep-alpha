@@ -41,14 +41,14 @@ const ROLES: { id: Role; icon: React.ElementType; description: string }[] = [
   { id: "DevOps", icon: Server, description: "CI/CD, infrastructure, reliability" },
 ];
 
-const COMPANIES: { id: Company; description: string }[] = [
-  { id: "Google", description: "Moonshots, 10x thinking" },
-  { id: "Amazon", description: "Leadership Principles" },
-  { id: "Meta", description: "Move fast, social impact" },
-  { id: "Apple", description: "Quality, privacy, design" },
-  { id: "Microsoft", description: "Growth mindset, ecosystem" },
-  { id: "Startup", description: "Hustle, adaptability, ownership" },
-  { id: "Custom", description: "General industry questions" },
+const COMPANIES: { id: Company; description: string; emoji: string }[] = [
+  { id: "Google", description: "Moonshots, 10x thinking", emoji: "🟢" },
+  { id: "Amazon", description: "Leadership Principles", emoji: "🟠" },
+  { id: "Meta", description: "Move fast, social impact", emoji: "🔵" },
+  { id: "Apple", description: "Quality, privacy, design", emoji: "⚫" },
+  { id: "Microsoft", description: "Growth mindset, ecosystem", emoji: "🔷" },
+  { id: "Startup", description: "Hustle, adaptability, ownership", emoji: "🚀" },
+  { id: "Custom", description: "General industry questions", emoji: "🏢" },
 ];
 
 const INTERVIEW_TYPES: { id: InterviewType; description: string; stages: string }[] = [
@@ -199,7 +199,7 @@ export default function SetupPage() {
                 <p className="text-muted-foreground mt-1">We'll tailor the deep-dive questions to their culture</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {COMPANIES.map(({ id, description }) => (
+                {COMPANIES.map(({ id, description, emoji }) => (
                   <div
                     key={id}
                     role="button"
@@ -211,7 +211,7 @@ export default function SetupPage() {
                     onClick={() => setCompany(id)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCompany(id); } }}
                   >
-                    <Building2 className={`h-6 w-6 mb-2 ${company === id ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-2xl mb-2 block">{emoji}</span>
                     <h3 className="font-semibold font-display">{id}</h3>
                     <p className="text-sm text-muted-foreground">{description}</p>
                   </div>

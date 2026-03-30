@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { getInterviewHistory, getPerformanceByCategory, signOut, type InterviewSession, type PerformanceData } from "@/lib/api";
+import { getAllInterviews } from "@/lib/interview-service";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target, BookOpen, Sparkles } from "lucide-react";
+import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target, BookOpen, Sparkles, History } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -15,6 +17,14 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<InterviewSession[]>([]);
   const [performance, setPerformance] = useState<PerformanceData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Multi-stage interviews from localStorage
+  const localInterviews = getAllInterviews().filter(iv => iv.completedAt).slice(0, 5);
+
+  // Greeting based on time of day
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
   useEffect(() => {
     loadData();
@@ -58,6 +68,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={() => navigate("/learning")}>
               <BookOpen className="h-4 w-4" />
             </Button>
@@ -72,8 +83,8 @@ export default function DashboardPage() {
         {/* Welcome + CTA */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold font-display">Dashboard</h1>
-            <p className="text-muted-foreground">Track your progress and start new interviews</p>
+            <h1 className="text-3xl font-bold font-display">{greeting}, {firstName} 👋</h1>
+            <p className="text-muted-foreground">Ready to ace your next interview?</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="hero" size="lg" onClick={() => navigate("/interview/setup")}>
@@ -165,11 +176,63 @@ export default function DashboardPage() {
           </Card>
         )}
 
+        {/* Multi-stage interview history from localStorage */}
+        {localInterviews.length > 0 && (
+          <Card className="p-6 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold font-display flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" /> Recent AI Interviews
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/interview/history")}>
+                <History className="h-4 w-4 mr-1" /> View All
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {localInterviews.map((iv) => (
+                <div
+                  key={iv.id}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
+                  onClick={() => navigate(`/interview/analysis/${iv.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center">
+                      <Brain className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{iv.role} — {iv.company}</p>
+                      <p className="text-xs text-muted-foreground">{iv.type} · {new Date(iv.startedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {iv.overallScore !== undefined && (
+                      <span className={`text-lg font-bold font-display ${iv.overallScore >= 70 ? "text-emerald-600" : iv.overallScore >= 45 ? "text-amber-600" : "text-destructive"}`}>
+                        {iv.overallScore}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">View →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* History */}
         <Card className="p-6 shadow-card">
           <h3 className="text-lg font-semibold font-display mb-4">Interview History</h3>
           {history.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No interviews yet. Start your first one!</p>
+            <div className="text-center py-10 space-y-4">
+              <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Play className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold font-display">No interviews yet</p>
+                <p className="text-muted-foreground text-sm mt-1">Start your first mock interview to track your progress</p>
+              </div>
+              <Button variant="hero" onClick={() => navigate("/interview/setup")}>
+                <Play className="h-4 w-4" /> Start First Interview
+              </Button>
+            </div>
           ) : (
             <div className="space-y-3">
               {history.slice(0, 10).map(session => (
