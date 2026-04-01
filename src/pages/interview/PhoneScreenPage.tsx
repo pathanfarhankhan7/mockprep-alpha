@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Brain, Mic, MicOff, AlertTriangle, ChevronRight, Sparkles, User } from "lucide-react";
+import { Brain, Mic, MicOff, AlertTriangle, ChevronRight, Sparkles, User, Video, VideoOff } from "lucide-react";
 import { toast } from "sonner";
 import {
   getInterview,
@@ -18,6 +18,7 @@ import { useTimer, formatTime } from "@/hooks/useTimer";
 import type { MultiStageInterview, StageType } from "@/lib/interview-service";
 import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
 import QuestionAIFeedback from "@/components/QuestionAIFeedback";
+import { useVideoRecording } from "@/hooks/useVideoRecording";
 
 const STAGE: StageType = "phone-screen";
 
@@ -74,6 +75,28 @@ export default function PhoneScreenPage() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const answerRef = useRef(answer);
   answerRef.current = answer;
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const videoStartedRef = useRef(false);
+
+  const videoRecording = useVideoRecording(interview?.videoEnabled ?? false);
+
+  // Attach live stream to preview element
+  useEffect(() => {
+    if (videoPreviewRef.current && videoRecording.stream) {
+      videoPreviewRef.current.srcObject = videoRecording.stream;
+    }
+  }, [videoRecording.stream]);
+
+  // Auto-start recording once interview loads with videoEnabled
+  useEffect(() => {
+    if (interview?.videoEnabled && !videoStartedRef.current) {
+      videoStartedRef.current = true;
+      videoRecording.startRecording().catch(() => {
+        toast.error("Could not access camera. Check browser permissions.");
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interview?.videoEnabled]);
 
   const stageData = interview?.stages[STAGE];
   const questions = stageData?.questions ?? [];
@@ -421,6 +444,41 @@ export default function PhoneScreenPage() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Floating camera preview */}
+      {interview?.videoEnabled && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-1">
+          {videoRecording.isRecording && (
+            <div className="flex items-center gap-1.5 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
+              <motion.div
+                className="h-2 w-2 rounded-full bg-destructive"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+              REC
+            </div>
+          )}
+          {videoRecording.error && (
+            <div className="flex items-center gap-1.5 bg-black/70 text-white text-xs px-2 py-1 rounded-lg max-w-[128px]">
+              <VideoOff className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">Camera denied</span>
+            </div>
+          )}
+          {videoRecording.stream ? (
+            <video
+              ref={videoPreviewRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-32 h-24 rounded-lg border border-border object-cover bg-black shadow-lg"
+            />
+          ) : (
+            <div className="w-32 h-24 rounded-lg border border-border bg-black/80 flex items-center justify-center shadow-lg">
+              <Video className="h-6 w-6 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

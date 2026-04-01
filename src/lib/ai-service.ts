@@ -32,83 +32,146 @@ function analyzeWithHeuristics(request: AIAnalysisRequest): AIAnalysisResult {
   const wordCount = words.length;
   const sentences = answer.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const sentenceCount = sentences.length;
+  const lower = answer.toLowerCase();
 
-  // Clarity: sentence length variety and punctuation usage
+  // ── STAR method detection ─────────────────────────────────────────────────
+  const starHits = {
+    situation: /\b(situation|context|background|when i|at my|we were|i was working|working at|in my (previous|last|current))\b/i.test(answer),
+    task: /\b(task|goal|objective|my role|i needed to|i had to|i was asked|responsibility|the challenge was)\b/i.test(answer),
+    action: /\bi (built|designed|implemented|worked|created|led|decided|wrote|proposed|took|delivered|launched|initiated|collaborated|resolved|developed|managed|coordinated)\b/i.test(answer),
+    result: /\b(result|outcome|impact|increased|decreased|improved|reduced|saved|delivered|shipped|launched|achieved|percent|%|success)\b/i.test(answer),
+  };
+  const starCount = Object.values(starHits).filter(Boolean).length;
+  const missingStar = Object.entries(starHits).filter(([, v]) => !v).map(([k]) => k);
+
+  const hasNumbers = /\d+(\.\d+)?(%|x|\s*percent|\s*times|\s*users|\s*million|\s*thousand)?/i.test(answer);
+  const hasStructureWords = /\b(first|second|third|finally|additionally|however|therefore|because|for example|as a result)\b/i.test(answer);
+
+  // ── Clarity (0–100): tiered by word count ─────────────────────────────────
+  let clarity: number;
+  if (wordCount >= 200) clarity = 85;
+  else if (wordCount >= 120) clarity = 75;
+  else if (wordCount >= 80) clarity = 65;
+  else if (wordCount >= 50) clarity = 52;
+  else if (wordCount >= 30) clarity = 38;
+  else if (wordCount >= 15) clarity = 24;
+  else if (wordCount >= 5) clarity = 13;
+  else clarity = 5;
+
   const avgWordsPerSentence = sentenceCount > 0 ? wordCount / sentenceCount : wordCount;
-  const clarityBase = Math.min(100, 40 + wordCount * 0.4);
-  const clarityPenalty = avgWordsPerSentence > 35 ? 15 : avgWordsPerSentence < 5 ? 10 : 0;
-  const clarity = Math.round(Math.max(20, Math.min(95, clarityBase - clarityPenalty)));
+  if (avgWordsPerSentence > 35) clarity = Math.max(5, clarity - 15);
+  if (sentenceCount >= 4) clarity = Math.min(95, clarity + 8);
 
-  // Completeness: length-based heuristic with structure bonuses
-  const hasStructure = /first|second|third|finally|additionally|however|therefore|because|example|situation|result/i.test(answer);
-  const completenessBase = Math.min(100, 30 + wordCount * 0.6 + (hasStructure ? 15 : 0));
-  const completeness = Math.round(Math.max(15, Math.min(95, completenessBase)));
+  // ── Completeness (0–100): word count + structure bonuses ─────────────────
+  let completeness: number;
+  if (wordCount >= 200) completeness = 80;
+  else if (wordCount >= 120) completeness = 68;
+  else if (wordCount >= 80) completeness = 55;
+  else if (wordCount >= 50) completeness = 42;
+  else if (wordCount >= 30) completeness = 28;
+  else if (wordCount >= 15) completeness = 17;
+  else if (wordCount >= 5) completeness = 10;
+  else completeness = 4;
 
-  // Relevance: keyword overlap with question
+  completeness = Math.min(95, completeness + starCount * 6 + (hasStructureWords ? 5 : 0));
+
+  // ── Relevance (0–100): question overlap + STAR + specificity ─────────────
   const questionWords = new Set(
     question.toLowerCase().split(/\W+/).filter(w => w.length > 4)
   );
-  const answerWords = answer.toLowerCase().split(/\W+/);
-  const overlap = answerWords.filter(w => questionWords.has(w)).length;
-  const relevanceBase = Math.min(100, 40 + overlap * 8);
-  const relevance = Math.round(Math.max(20, Math.min(95, relevanceBase)));
+  const answerWords = lower.split(/\W+/);
+  const directOverlap = answerWords.filter(w => questionWords.has(w)).length;
 
-  // Confidence: first-person usage and assertive language
+  const relevance = Math.max(5, Math.min(95,
+    15 +
+    Math.min(25, directOverlap * 7) +
+    starCount * 10 +
+    (hasNumbers ? 10 : 0) +
+    (wordCount >= 50 ? 5 : 0) +
+    (wordCount >= 100 ? 5 : 0)
+  ));
+
+  // ── Confidence (0–100): ownership language, action words, specificity ─────
   const firstPersonCount = (answer.match(/\bI\b|\bmy\b|\bme\b|\bwe\b/gi) || []).length;
-  const hedgeWords = (answer.match(/\bmaybe\b|\bperhaps\b|\bpossibly\b|\bi think\b|\bnot sure\b/gi) || []).length;
-  const confidenceBase = Math.min(100, 45 + firstPersonCount * 3 - hedgeWords * 8);
-  const confidence = Math.round(Math.max(20, Math.min(95, confidenceBase)));
+  const positiveActionCount = (lower.match(/\b(achieved|improved|built|led|designed|delivered|shipped|increased|reduced|solved|created|implemented|optimized|launched|owned|drove|collaborated|succeeded|completed)\b/g) || []).length;
+  const hedgeCount = (answer.match(/\bmaybe\b|\bperhaps\b|\bpossibly\b|\bi think\b|\bnot sure\b/gi) || []).length;
+
+  const confidence = Math.max(5, Math.min(95,
+    10 +
+    Math.min(20, firstPersonCount * 3) +
+    Math.min(30, positiveActionCount * 6) +
+    (hasNumbers ? 12 : 0) -
+    hedgeCount * 8
+  ));
 
   const overall = Math.round((clarity + completeness + relevance + confidence) / 4);
 
-  // Strengths and improvements based on scores
+  // ── Specific, STAR-aware strengths & improvements ─────────────────────────
   const strengths: string[] = [];
   const improvements: string[] = [];
 
-  if (clarity >= 70) strengths.push("Your answer is clearly structured and easy to follow.");
-  else improvements.push("Work on clarity — use shorter sentences and clearer transitions.");
+  if (wordCount >= 100) strengths.push("Good response length — you gave the interviewer enough detail to evaluate you.");
+  else if (wordCount < 30) improvements.push(`Your answer is too brief (${wordCount} words). Aim for at least 80–150 words.`);
+  else improvements.push("Expand your answer with more specific examples and context — aim for 100+ words.");
 
-  if (completeness >= 70) strengths.push("You provided a thorough and complete response.");
-  else improvements.push("Add more detail and concrete examples to make your answer more complete.");
+  if (starCount >= 3) strengths.push("Strong use of the STAR method — you covered the situation, actions, and results clearly.");
+  else if (starCount >= 2) strengths.push("Partial STAR structure detected. Good start — keep building on it.");
+  else {
+    const missing = missingStar.slice(0, 2);
+    const hint = missing.length === 1
+      ? `${missing[0]} component`
+      : `${missing.join(" and ")} components`;
+    improvements.push(`Use the STAR method. Your answer is missing the ${hint || "action and result components"}.`);
+  }
 
-  if (relevance >= 70) strengths.push("Your answer stays on topic and addresses the question directly.");
-  else improvements.push("Make sure to address all parts of the question directly.");
+  if (hasNumbers) strengths.push("You used specific numbers or metrics — this makes your impact concrete and credible.");
+  else improvements.push("Add quantifiable results (e.g., '40% faster', '3 team members', '$20K saved') to strengthen your answer.");
 
-  if (confidence >= 70) strengths.push("Your answer conveys confidence and ownership.");
-  else improvements.push("Use more assertive language and avoid hedging phrases like 'maybe' or 'I think'.");
+  if (confidence >= 60) strengths.push("Your language conveys ownership and confidence.");
+  else if (hedgeCount > 1) improvements.push(`Reduce hedging words ('maybe', 'perhaps', 'I think') — they undermine your confidence.`);
+  else improvements.push("Use assertive, action-oriented language — lead with 'I built', 'I led', 'I achieved'.");
 
-  if (hasStructure) strengths.push("Good use of structure with clear transitions.");
-  else improvements.push("Try using the STAR method or explicit transitions (first, then, finally) to structure your answer.");
-
-  if (wordCount < 50) improvements.push("Your answer is too brief — aim for at least 100-150 words for a complete response.");
-  if (wordCount > 400) improvements.push("Consider being more concise — strong interview answers are typically 150-300 words.");
+  if (hasStructureWords || starCount >= 2) strengths.push("Clear logical flow with structured transitions.");
+  else improvements.push("Add structure cues like 'First...', 'Then...', 'As a result...' to guide the interviewer through your answer.");
 
   // Suggest tips based on category and weaknesses
   const suggestedTipIds: string[] = [];
-  if (clarity < 60 || completeness < 60) suggestedTipIds.push("b1"); // STAR method
-  if (confidence < 60) suggestedTipIds.push("b2"); // Tell me about yourself
+  if (starCount < 3) suggestedTipIds.push("b1");
+  if (confidence < 50) suggestedTipIds.push("b2");
   if (category === "Technical") suggestedTipIds.push("t1", "t4");
   if (category === "Behavioral") suggestedTipIds.push("b1", "b5");
   if (category === "HR") suggestedTipIds.push("hr1", "hr4");
   if (category === "Problem-Solving") suggestedTipIds.push("ps1", "ps4");
 
-  const recommendation = overall >= 80
-    ? "Excellent response! You demonstrated strong communication and clear thinking. Keep practicing to maintain this level."
-    : overall >= 60
-    ? "Good effort! A few targeted improvements will elevate your answer significantly. Focus on the areas highlighted below."
-    : "This answer needs development. Review the STAR method and practice structuring your responses with specific examples and outcomes.";
+  const recommendation = overall >= 75
+    ? "Strong answer! You demonstrated clear communication and provided concrete evidence. Continue using specific examples and measurable outcomes."
+    : overall >= 55
+    ? "Solid foundation — your answer has the right instincts. Focus on adding the missing STAR components and quantifying your impact to push your score higher."
+    : overall >= 35
+    ? "Your answer needs more development. Practice the STAR method: describe the Situation, your Task, the Action you took, and the Result you achieved. Always close with a specific outcome."
+    : "Start by speaking for longer and structuring your answer. Even a 2-minute spoken answer following STAR (Situation → Task → Action → Result) will dramatically improve your score.";
 
-  const detailedFeedback = `Your response scored ${overall}/100 overall. ${
-    wordCount < 50
-      ? "The answer was very brief — interviewers expect substantive responses."
-      : wordCount > 400
-      ? "The answer was lengthy — consider distilling your key points more concisely."
-      : "The length was appropriate for an interview answer."
+  const starSummary = starCount === 4
+    ? "You covered all four STAR components (Situation, Task, Action, Result)."
+    : starCount >= 2
+    ? `You covered ${starCount}/4 STAR components. Missing: ${missingStar.join(", ")}.`
+    : `Your answer is missing key STAR components: ${missingStar.join(", ")}.`;
+
+  const lengthNote = wordCount < 30
+    ? `At only ${wordCount} words, your answer was too short for a meaningful interview response.`
+    : wordCount > 350
+    ? `Your answer was ${wordCount} words — a bit long. Try to distill your key points more concisely.`
+    : `Your answer was ${wordCount} words, which is ${wordCount >= 80 ? "a good length" : "slightly short — aim for 80–150 words"}.`;
+
+  const detailedFeedback = `${lengthNote} ${starSummary} ${
+    hasNumbers
+      ? "You included specific numbers which adds credibility."
+      : "Adding specific numbers or metrics would make your impact more convincing."
   } ${
-    hasStructure
-      ? "You demonstrated good use of structure with logical flow."
-      : "Adding explicit structure (e.g., STAR method) would improve your answer significantly."
-  } Focus on the improvement areas below to reach a higher score.`;
+    hedgeCount > 1
+      ? `You used hedging language ${hedgeCount} times — this weakens your delivery.`
+      : "Your language was mostly assertive and direct."
+  }`;
 
   return {
     scores: { clarity, completeness, relevance, confidence, overall },

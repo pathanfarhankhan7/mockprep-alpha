@@ -157,6 +157,16 @@ export default function QuestionAIFeedback({
         )}
       </div>
 
+      {/* Detailed analysis */}
+      {result.detailedFeedback && (
+        <Card className="p-4 bg-muted/40 border-border">
+          <p className="text-xs font-semibold text-foreground mb-1 flex items-center gap-1">
+            <Bot className="h-3.5 w-3.5" /> Detailed Analysis
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{result.detailedFeedback}</p>
+        </Card>
+      )}
+
       {/* Coach tip */}
       <Card className="p-4 bg-primary/5 border-primary/20">
         <p className="text-xs font-semibold text-primary mb-1 flex items-center gap-1">
