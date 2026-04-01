@@ -8,6 +8,7 @@ export interface VideoRecordingState {
   recordedBlob: Blob | null;
   videoUrl: string | null;
   error: string | null;
+  stream: MediaStream | null; // live stream for preview
 }
 
 export function useVideoRecording(enabled: boolean): VideoRecordingState {
@@ -16,6 +17,7 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -25,6 +27,7 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      setStream(null);
     }
   }, []);
 
@@ -56,6 +59,7 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
         audio: true,
       });
       streamRef.current = stream;
+      setStream(stream);
       setHasPermission(true);
 
       const mimeType = getSupportedMimeType();
@@ -111,6 +115,7 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
     recordedBlob,
     videoUrl,
     error,
+    stream,
   };
 }
 
