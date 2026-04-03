@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  Bot,
   Brain,
   Printer,
   ArrowLeft,
@@ -167,8 +168,8 @@ export default function ReportPage() {
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-6 w-6 text-primary" />
-                    <span className="font-bold font-display text-lg text-primary">MockPrep AI</span>
+                    <Bot className="h-6 w-6 text-primary" />
+                    <span className="font-bold font-display text-lg text-primary">SmartMock</span>
                   </div>
                   <h1 className="text-3xl font-bold font-display">{interview.role} Interview Report</h1>
                   <p className="text-muted-foreground mt-1">

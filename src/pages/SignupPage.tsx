@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { signUp } from "@/lib/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Brain, ArrowRight } from "lucide-react";
+import { Bot, ArrowRight } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function SignupPage() {
@@ -36,9 +36,9 @@ export default function SignupPage() {
         <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="max-w-md">
           <div className="flex items-center gap-3 mb-8">
             <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center">
-              <Brain className="h-7 w-7 text-primary-foreground" />
+              <Bot className="h-7 w-7 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold text-secondary-foreground font-display">MockPrep AI</h1>
+            <h1 className="text-3xl font-bold text-secondary-foreground font-display">SmartMock</h1>
           </div>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Join thousands of candidates who ace their interviews with AI-powered practice sessions.
@@ -51,9 +51,9 @@ export default function SignupPage() {
           <div className="lg:hidden flex items-center justify-between mb-8">
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center">
-                <Brain className="h-6 w-6 text-primary-foreground" />
+                <Bot className="h-6 w-6 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold font-display">MockPrep AI</span>
+              <span className="text-xl font-bold font-display">SmartMock</span>
             </div>
             <ThemeToggle />
           </div>
