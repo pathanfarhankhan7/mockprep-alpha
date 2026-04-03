@@ -66,7 +66,7 @@ const ROLE_KEYWORDS: Record<string, string[]> = {
     "javascript", "typescript", "python", "java", "c++", "c#", "react", "node", "angular", "vue",
     "backend", "frontend", "full stack", "fullstack", "rest api", "graphql", "software engineer",
     "developer", "coding", "algorithm", "data structure", "git", "microservices", "sql", "mongodb",
-    "aws", "docker", "spring", "django", "flask", "ruby", "go ", "golang", "kotlin", "swift",
+    "aws", "docker", "spring", "django", "flask", "ruby", "golang", "kotlin", "swift",
   ],
   "Product Manager": [
     "product manager", "product management", "roadmap", "stakeholder", "agile", "scrum", "sprint",
@@ -120,7 +120,11 @@ async function extractTextFromFile(file: File): Promise<string> {
       reader.readAsText(file);
     });
   }
-  // For PDF/DOCX: read as ArrayBuffer and extract printable ASCII runs
+  // For PDF/DOCX: read as ArrayBuffer and extract runs of printable ASCII characters.
+  // This is a simplified approach — it works well for text-based PDFs and DOCX XML
+  // fragments, but may miss non-ASCII characters. Runs shorter than MIN_RUN_LENGTH
+  // are discarded to avoid noise from binary metadata bytes.
+  const MIN_RUN_LENGTH = 4;
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -133,11 +137,11 @@ async function extractTextFromFile(file: File): Promise<string> {
         if (c >= 32 && c <= 126) {
           run += String.fromCharCode(c);
         } else {
-          if (run.length >= 4) text += run + " ";
+          if (run.length >= MIN_RUN_LENGTH) text += run + " ";
           run = "";
         }
       }
-      if (run.length >= 4) text += run;
+      if (run.length >= MIN_RUN_LENGTH) text += run;
       resolve(text);
     };
     reader.onerror = reject;
@@ -162,8 +166,9 @@ export default function Index() {
   const handleFileChange = async (file: File | null) => {
     if (!file) return;
     const allowed = ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    const isAllowed = allowed.includes(file.type) || file.name.endsWith(".txt") || file.name.endsWith(".pdf") || file.name.endsWith(".docx");
-    if (!isAllowed) {
+    // Also check file extension as a fallback since MIME types may not be set correctly on all OS/browser combos
+    const hasAllowedExt = file.name.endsWith(".txt") || file.name.endsWith(".pdf") || file.name.endsWith(".docx");
+    if (!allowed.includes(file.type) && !hasAllowedExt) {
       setResumeError("Please upload a PDF, DOCX, or TXT file.");
       return;
     }
@@ -175,7 +180,7 @@ export default function Index() {
       const text = await extractTextFromFile(file);
       const result = detectRoleFromText(text);
       if (!result) {
-        setResumeError("Couldn't detect a role from your resume. Try a plain-text (.txt) version.");
+        setResumeError("Unable to detect a role from your resume. Please ensure it includes relevant keywords for your target position, or try uploading a plain-text (.txt) version.");
       } else {
         setResumeAnalysis(result);
       }
