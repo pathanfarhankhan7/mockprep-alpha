@@ -7,7 +7,7 @@ import { getInterviewHistory, getPerformanceByCategory, signOut, type InterviewS
 import { getAllInterviews } from "@/lib/interview-service";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target, BookOpen, Sparkles, History } from "lucide-react";
+import { Bot, Brain, Play, BarChart3, LogOut, Clock, Trophy, TrendingUp, Target, BookOpen, Sparkles, History } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -62,9 +62,9 @@ export default function DashboardPage() {
         <div className="container mx-auto flex items-center justify-between py-4 px-4">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center">
-              <Brain className="h-5 w-5 text-primary-foreground" />
+              <Bot className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold font-display">MockPrep AI</span>
+            <span className="text-lg font-bold font-display">SmartMock</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
