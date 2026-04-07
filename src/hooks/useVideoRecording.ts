@@ -5,6 +5,10 @@ export interface VideoRecordingState {
   hasPermission: boolean | null; // null = not yet determined
   startRecording: () => Promise<void>;
   stopRecording: () => void;
+  /** Stops both the active recording and the camera stream. */
+  turnOffCamera: () => void;
+  /** Toggles camera: starts recording if off, turns camera off if on. */
+  toggleCamera: () => void;
   recordedBlob: Blob | null;
   videoUrl: string | null;
   error: string | null;
@@ -54,16 +58,16 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
     chunksRef.current = [];
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
-      streamRef.current = stream;
-      setStream(stream);
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
       setHasPermission(true);
 
       const mimeType = getSupportedMimeType();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -79,7 +83,9 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
         setRecordedBlob(blob);
         const url = URL.createObjectURL(blob);
         setVideoUrl(url);
-        stopStream();
+        // NOTE: stream is intentionally kept alive here so the live preview
+        // remains visible alongside the playback video. Stream cleanup happens
+        // via turnOffCamera() or on component unmount.
       };
 
       recorder.onerror = () => {
@@ -100,18 +106,44 @@ export function useVideoRecording(enabled: boolean): VideoRecordingState {
     }
   }, [enabled, stopStream]);
 
+  /** Stop the MediaRecorder and produce a recorded blob/URL.
+   *  The camera stream stays alive so the live preview keeps working. */
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
+    // Guard against inactive recorder (avoids errors on double-calls or stale state)
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
-  }, [isRecording]);
+  }, []);
+
+  /** Stop recording AND turn off the camera stream entirely. */
+  const turnOffCamera = useCallback(() => {
+    stopRecording();
+    stopStream();
+  }, [stopRecording, stopStream]);
+
+  /** Toggle the camera: turns it off if currently on, starts it if off. */
+  const toggleCamera = useCallback(() => {
+    if (streamRef.current) {
+      turnOffCamera();
+    } else {
+      // Clear any previous recording artifact before starting fresh
+      setRecordedBlob(null);
+      setVideoUrl(null);
+      startRecording();
+    }
+  }, [turnOffCamera, startRecording]);
 
   return {
     isRecording,
     hasPermission,
     startRecording,
     stopRecording,
+    turnOffCamera,
+    toggleCamera,
     recordedBlob,
     videoUrl,
     error,

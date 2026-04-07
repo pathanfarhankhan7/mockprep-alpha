@@ -13,6 +13,9 @@ import {
   getStageRoute,
 } from "./interview-data";
 
+import type { EmotionSnapshot, EmotionSummary } from "./emotion-service";
+export type { EmotionSnapshot, EmotionSummary };
+
 export { getStageRoute };
 
 export type { Role, Company, InterviewType, StageType, Verdict };
@@ -31,6 +34,7 @@ export interface StageAnswer {
   timeUsed: number; // seconds
   scores?: AnswerScores;
   feedback?: string;
+  emotionData?: EmotionSnapshot;
 }
 
 export interface StageData {
@@ -282,7 +286,27 @@ export function completeInterview(id: string): MultiStageInterview | null {
   return interview;
 }
 
-// ─── Heuristics-based answer analysis ────────────────────────────────────────
+// ─── Emotion data attachment ──────────────────────────────────────────────────
+
+/** Attach an emotion snapshot to a previously saved answer. Safe to call async
+ *  after the answer has already been stored. */
+export function attachEmotionToAnswer(
+  id: string,
+  stage: StageType,
+  questionIndex: number,
+  emotionData: EmotionSnapshot,
+): void {
+  const all = loadAll();
+  const interview = all[id];
+  if (!interview) return;
+  const stageData = interview.stages[stage];
+  if (!stageData?.answers[questionIndex]) return;
+  stageData.answers[questionIndex].emotionData = emotionData;
+  all[id] = interview;
+  saveAll(all);
+}
+
+// ─── Heuristics-based answer analysis ─────────────────────────────────────────
 
 const FILLER_WORDS = [
   "um", "uh", "like", "you know", "basically", "literally", "right",
