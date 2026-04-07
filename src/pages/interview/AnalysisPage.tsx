@@ -23,6 +23,8 @@ import {
 import { getInterview, type MultiStageInterview, type StageData, type StageAnswer, type Verdict } from "@/lib/interview-service";
 import { getStageName, getStagesForType } from "@/lib/interview-data";
 import { analyzeInterviewAnswer } from "@/lib/ai-service";
+import { generateEmotionSummary, type EmotionSnapshot } from "@/lib/emotion-service";
+import EmotionInsights from "@/components/EmotionInsights";
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const color =
@@ -245,12 +247,23 @@ export default function AnalysisPage() {
   const [interview, setInterview] = useState<MultiStageInterview | null>(null);
   const [aiSummary, setAiSummary] = useState<{ recommendation: string; strengths: string[]; improvements: string[] } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [emotionSummary, setEmotionSummary] = useState<ReturnType<typeof generateEmotionSummary> | null>(null);
 
   useEffect(() => {
     if (!interviewId) { navigate("/dashboard"); return; }
     const iv = getInterview(interviewId);
     if (!iv) { navigate("/dashboard"); return; }
     setInterview(iv);
+
+    // Collect all emotion snapshots across every stage answer
+    const emotionSnapshots: EmotionSnapshot[] = [];
+    for (const stageData of Object.values(iv.stages)) {
+      if (!stageData?.answers) continue;
+      for (const answer of stageData.answers) {
+        if (answer.emotionData) emotionSnapshots.push(answer.emotionData);
+      }
+    }
+    setEmotionSummary(generateEmotionSummary(emotionSnapshots));
 
     // Generate AI coaching summary from the first answered question of each stage
     const allAnswers: Array<{ question: string; answer: string; category: string }> = [];
@@ -439,6 +452,13 @@ export default function AnalysisPage() {
             )}
           </Card>
         </motion.div>
+
+        {/* Emotion & Presentation Analysis */}
+        {emotionSummary && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <EmotionInsights summary={emotionSummary} />
+          </motion.div>
+        )}
 
         {/* Stage breakdown */}
         <div className="space-y-4">

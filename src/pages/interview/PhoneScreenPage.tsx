@@ -12,6 +12,7 @@ import {
   completeStage,
   completeInterview,
   getStageRoute,
+  attachEmotionToAnswer,
 } from "@/lib/interview-service";
 import { getStageName, getStagesForType } from "@/lib/interview-data";
 import { useTimer, formatTime } from "@/hooks/useTimer";
@@ -19,6 +20,7 @@ import type { MultiStageInterview, StageType } from "@/lib/interview-service";
 import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
 import QuestionAIFeedback from "@/components/QuestionAIFeedback";
 import { useVideoRecording } from "@/hooks/useVideoRecording";
+import { captureVideoFrame, analyzeEmotion } from "@/lib/emotion-service";
 
 const STAGE: StageType = "phone-screen";
 
@@ -155,8 +157,18 @@ export default function PhoneScreenPage() {
       setIsRecording(false);
     }
 
+    // Capture video frame for emotion analysis before answer is saved
+    const frameData = videoPreviewRef.current
+      ? captureVideoFrame(videoPreviewRef.current)
+      : null;
+
     const updated = saveAnswer(interviewId, STAGE, questionIndex, finalAnswer, timeUsed);
     if (updated) setInterview(updated);
+
+    // Run emotion analysis in background — does not block UI
+    analyzeEmotion(frameData, finalAnswer).then((emotionSnapshot) => {
+      attachEmotionToAnswer(interviewId, STAGE, questionIndex, emotionSnapshot);
+    }).catch(() => { /* silently ignore emotion errors */ });
 
     // Build the "continue" action (advance question or complete stage)
     const nextIndex = questionIndex + 1;

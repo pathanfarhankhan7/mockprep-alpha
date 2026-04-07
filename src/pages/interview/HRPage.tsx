@@ -11,6 +11,7 @@ import {
   saveAnswer,
   completeStage,
   completeInterview,
+  attachEmotionToAnswer,
 } from "@/lib/interview-service";
 import { getStageName, getStagesForType } from "@/lib/interview-data";
 import { useTimer, formatTime } from "@/hooks/useTimer";
@@ -18,6 +19,7 @@ import type { MultiStageInterview, StageType } from "@/lib/interview-service";
 import { analyzeInterviewAnswer, type AIAnalysisResult } from "@/lib/ai-service";
 import QuestionAIFeedback from "@/components/QuestionAIFeedback";
 import { useVideoRecording } from "@/hooks/useVideoRecording";
+import { captureVideoFrame, analyzeEmotion } from "@/lib/emotion-service";
 
 const STAGE: StageType = "hr";
 
@@ -116,8 +118,19 @@ export default function HRPage() {
 
     const timeUsed = (currentQuestion.timeLimit ?? 120) - timeLeft;
     const finalAnswer = answerRef.current.trim() || "(No answer provided)";
+
+    // Capture video frame for emotion analysis
+    const frameData = videoPreviewRef.current
+      ? captureVideoFrame(videoPreviewRef.current)
+      : null;
+
     const updated = saveAnswer(interviewId, STAGE, questionIndex, finalAnswer, timeUsed);
     if (updated) setInterview(updated);
+
+    // Run emotion analysis in background — non-blocking
+    analyzeEmotion(frameData, finalAnswer).then((emotionSnapshot) => {
+      attachEmotionToAnswer(interviewId, STAGE, questionIndex, emotionSnapshot);
+    }).catch(() => { /* silently ignore */ });
 
     const nextIndex = questionIndex + 1;
     const continueAction = () => {
