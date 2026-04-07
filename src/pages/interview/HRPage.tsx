@@ -130,13 +130,20 @@ export default function HRPage() {
     // Run emotion analysis in background — non-blocking
     analyzeEmotion(frameData, finalAnswer).then((emotionSnapshot) => {
       attachEmotionToAnswer(interviewId, STAGE, questionIndex, emotionSnapshot);
-    }).catch(() => { /* silently ignore */ });
+    }).catch((err) => { console.error("[HR] Emotion analysis failed:", err); });
 
     const nextIndex = questionIndex + 1;
+    const isLastQuestion = nextIndex >= questions.length;
+
+    // Stop video recording on last question so the blob is ready during AI feedback
+    if (isLastQuestion) {
+      videoRecording.stopRecording();
+    }
+
     const continueAction = () => {
       setAiResult(null);
       setPendingContinue(null);
-      if (nextIndex < questions.length) {
+      if (!isLastQuestion) {
         setQuestionIndex(nextIndex);
         setAnswer("");
         setSubmitting(false);
@@ -164,7 +171,7 @@ export default function HRPage() {
     } finally {
       setAnalyzingAI(false);
     }
-  }, [interview, currentQuestion, interviewId, questionIndex, questions.length, submitting, timeLeft, isRecording, navigate]);
+  }, [interview, currentQuestion, interviewId, questionIndex, questions.length, submitting, timeLeft, isRecording, navigate, videoRecording]);
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -394,9 +401,32 @@ export default function HRPage() {
             />
           ) : (
             <div className="w-32 h-24 rounded-lg border border-border bg-black/80 flex items-center justify-center shadow-lg">
-              <Video className="h-6 w-6 text-muted-foreground" />
+              <VideoOff className="h-6 w-6 text-muted-foreground" />
             </div>
           )}
+          {videoRecording.videoUrl && !videoRecording.isRecording && (
+            <div className="w-32 space-y-0.5">
+              <p className="text-xs text-white/80 text-center bg-black/60 rounded-t px-1">Your recording</p>
+              <video
+                src={videoRecording.videoUrl}
+                controls
+                playsInline
+                className="w-32 rounded-b-lg border border-border object-cover bg-black shadow-lg"
+                style={{ maxHeight: "96px" }}
+              />
+            </div>
+          )}
+          <button
+            onClick={videoRecording.toggleCamera}
+            className="flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2 py-1 rounded-full transition-colors"
+            title={videoRecording.stream ? "Turn camera off" : "Turn camera on"}
+          >
+            {videoRecording.stream ? (
+              <><Video className="h-3 w-3" /> On</>
+            ) : (
+              <><VideoOff className="h-3 w-3" /> Off</>
+            )}
+          </button>
         </div>
       )}
     </div>

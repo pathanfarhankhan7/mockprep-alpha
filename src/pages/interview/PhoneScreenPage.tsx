@@ -143,7 +143,7 @@ export default function PhoneScreenPage() {
     }
   }, [timeLeft, isRunning, warned]);
 
-  const handleSubmitAnswer = useCallback(async () => {
+   const handleSubmitAnswer = useCallback(async () => {
     if (!interview || !currentQuestion || submitting) return;
 
     const timeUsed = (currentQuestion.timeLimit ?? 120) - timeLeft;
@@ -168,14 +168,21 @@ export default function PhoneScreenPage() {
     // Run emotion analysis in background — does not block UI
     analyzeEmotion(frameData, finalAnswer).then((emotionSnapshot) => {
       attachEmotionToAnswer(interviewId, STAGE, questionIndex, emotionSnapshot);
-    }).catch(() => { /* silently ignore emotion errors */ });
+    }).catch((err) => { console.error("[PhoneScreen] Emotion analysis failed:", err); });
 
     // Build the "continue" action (advance question or complete stage)
     const nextIndex = questionIndex + 1;
+    const isLastQuestion = nextIndex >= questions.length;
+
+    // Stop video recording on last question so the blob is ready during AI feedback
+    if (isLastQuestion) {
+      videoRecording.stopRecording();
+    }
+
     const continueAction = () => {
       setAiResult(null);
       setPendingContinue(null);
-      if (nextIndex < questions.length) {
+      if (!isLastQuestion) {
         setQuestionIndex(nextIndex);
         setAnswer("");
         setSubmitting(false);
@@ -211,7 +218,7 @@ export default function PhoneScreenPage() {
     } finally {
       setAnalyzingAI(false);
     }
-  }, [interview, currentQuestion, interviewId, navigate, questionIndex, questions.length, submitting, timeLeft, isRecording]);
+  }, [interview, currentQuestion, interviewId, navigate, questionIndex, questions.length, submitting, timeLeft, isRecording, videoRecording]);
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -460,6 +467,7 @@ export default function PhoneScreenPage() {
       {/* Floating camera preview */}
       {interview?.videoEnabled && (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-1">
+          {/* Recording / Camera-off status badges */}
           {videoRecording.isRecording && (
             <div className="flex items-center gap-1.5 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
               <motion.div
@@ -476,6 +484,8 @@ export default function PhoneScreenPage() {
               <span className="truncate">Camera denied</span>
             </div>
           )}
+
+          {/* Live preview or placeholder */}
           {videoRecording.stream ? (
             <video
               ref={videoPreviewRef}
@@ -486,9 +496,36 @@ export default function PhoneScreenPage() {
             />
           ) : (
             <div className="w-32 h-24 rounded-lg border border-border bg-black/80 flex items-center justify-center shadow-lg">
-              <Video className="h-6 w-6 text-muted-foreground" />
+              <VideoOff className="h-6 w-6 text-muted-foreground" />
             </div>
           )}
+
+          {/* Recorded playback (shown after recording stops while still on page) */}
+          {videoRecording.videoUrl && !videoRecording.isRecording && (
+            <div className="w-32 space-y-0.5">
+              <p className="text-xs text-white/80 text-center bg-black/60 rounded-t px-1">Your recording</p>
+              <video
+                src={videoRecording.videoUrl}
+                controls
+                playsInline
+                className="w-32 rounded-b-lg border border-border object-cover bg-black shadow-lg"
+                style={{ maxHeight: "96px" }}
+              />
+            </div>
+          )}
+
+          {/* Toggle camera on/off button */}
+          <button
+            onClick={videoRecording.toggleCamera}
+            className="flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2 py-1 rounded-full transition-colors"
+            title={videoRecording.stream ? "Turn camera off" : "Turn camera on"}
+          >
+            {videoRecording.stream ? (
+              <><Video className="h-3 w-3" /> On</>
+            ) : (
+              <><VideoOff className="h-3 w-3" /> Off</>
+            )}
+          </button>
         </div>
       )}
     </div>

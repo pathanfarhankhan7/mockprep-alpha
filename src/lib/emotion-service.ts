@@ -125,6 +125,10 @@ export function analyzeEmotionFromText(answerText: string): EmotionSnapshot {
   return { emotion: dominant, confidence: scores[dominant], scores, method: "heuristic" };
 }
 
+// Vision API request constants
+const MAX_ANSWER_CONTEXT_LENGTH = 300;
+const MAX_VISION_RESPONSE_TOKENS = 200;
+
 // ─── OpenAI Vision-Based Emotion Analysis ────────────────────────────────────
 
 async function analyzeEmotionWithVision(
@@ -137,7 +141,7 @@ async function analyzeEmotionWithVision(
 
   const prompt = `You are an interview coaching AI. Analyze this candidate's facial expression and body language captured during a mock interview.
 
-Candidate's answer (for context): "${answerText.slice(0, 300)}"
+Candidate's answer (for context): "${answerText.slice(0, MAX_ANSWER_CONTEXT_LENGTH)}"
 
 Return JSON only:
 {
@@ -167,7 +171,7 @@ Return JSON only:
         },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 200,
+      max_tokens: MAX_VISION_RESPONSE_TOKENS,
       temperature: 0.2,
     }),
   });
@@ -198,8 +202,8 @@ export async function analyzeEmotion(
   if (frameDataUrl && apiKey) {
     try {
       return await analyzeEmotionWithVision(frameDataUrl, answerText, apiKey);
-    } catch {
-      // Fall through to heuristic
+    } catch (err) {
+      console.error("[emotion-service] Vision API failed, falling back to heuristics:", err);
     }
   }
 
