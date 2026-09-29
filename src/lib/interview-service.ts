@@ -166,6 +166,31 @@ export function getAllInterviews(): MultiStageInterview[] {
   );
 }
 
+export function deleteInterview(id: string): boolean {
+  const all = loadAll();
+  if (!all[id]) return false;
+  delete all[id];
+  saveAll(all);
+  return true;
+}
+
+export function clearCompletedInterviews(): number {
+  const all = loadAll();
+  const completedIds = Object.values(all)
+    .filter((interview) => interview.status === "completed")
+    .map((interview) => interview.id);
+
+  for (const id of completedIds) {
+    delete all[id];
+  }
+
+  if (completedIds.length > 0) {
+    saveAll(all);
+  }
+
+  return completedIds.length;
+}
+
 export function saveAnswer(
   id: string,
   stage: StageType,
